@@ -1,4 +1,4 @@
-name: bbo_traingui
+name: bbo_labelgui
 channels:
   - defaults
 dependencies:
