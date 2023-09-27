@@ -4,8 +4,10 @@ import sys
 if getattr(sys, 'frozen', False):
     dll_dir = os.path.join(sys._MEIPASS, 'av.libs')
     os.environ['PATH'] = dll_dir + os.pathsep + os.environ['PATH'] 
+import av
 
 from labelgui.__main__ import main
+import tqdm 
 
 if __name__ == '__main__':
     main()

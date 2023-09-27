@@ -8,9 +8,9 @@ README = (HERE / "README.md").read_text()
 
 # This call to setup() does all the work
 setup(
-    name="bbo-acm-traingui",
-    version="0.11.7",
-    description="GUI to label frames for training of ACM-dlcdetect",
+    name="bbo-labelgui",
+    version="0.12.7",
+    description="GUI for guided data labeling",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/bbo-lab/acm-traingui",
@@ -25,7 +25,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
     ],
-    packages=['ACMtraingui'],
+    packages=['labelgui'],
     include_package_data=True,
-    install_requires=["numpy"],
+    install_requires=["numpy", "matplotlib", "imageio", "bbo_ccvtools", "PyQt5", "bbo_svidreader", "tqdm"],
 )
