@@ -34,7 +34,7 @@ class SelectUserWindow(QDialog):
 
     @staticmethod
     def get_user_list(drive):
-        user_list = sorted(os.listdir(drive / 'pose/data/user'))
+        user_list = sorted(os.listdir(drive / 'data' / 'user'))
         return user_list
 
     def center(self):

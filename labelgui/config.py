@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 
 def load_cfg(path):
     cfg_file = open(path, 'r')
