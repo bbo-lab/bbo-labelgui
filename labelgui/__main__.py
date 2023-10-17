@@ -14,6 +14,8 @@ def main():
                              "config file")
     parser.add_argument('--merge', type=str, required=False, nargs='*', default=None,
                         help="If given, merges given labes.npz into labels.npz file specified in INPUT_PATH")
+    parser.add_argument('--add', type=str, required=False, nargs='*', default=None,
+                        help="Like merge, but never overwrites target data")
     parser.add_argument('--combine_cams', type=str, required=False, nargs='*', default=None,
                         help="If given, merges given labes.npz into a labels.npz file specified in INPUT_PATH, "
                              "where each labels file stands for a separate camera. 'None' serves as a placeholder.")
@@ -31,7 +33,9 @@ def main():
     print(input_path)
 
     if args.merge is not None:
-        label_data.merge(args.merge, target_file=input_path)
+        label_data.merge(args.merge, target_file=input_path, overwrite=True)
+    if args.add is not None:
+        label_data.merge(args.merge, target_file=input_path, overwrite=False)
     elif args.combine_cams is not None:
         label_data.combine_cams(args.combine_cams, target_file=input_path)
     elif args.check is not None:

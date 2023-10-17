@@ -49,7 +49,7 @@ def get_labeled_frame_idxs(labels):
     return sorted(list(frames))
 
 
-def merge(labels_list: list, labeler_list=None, target_file=None):
+def merge(labels_list: list, labeler_list=None, target_file=None, overwrite=False):
     # Load data from files
     labels_files = None
     if isinstance(labels_list[0], str):
@@ -102,9 +102,8 @@ def merge(labels_list: list, labeler_list=None, target_file=None):
                 # Label not present for this frame in source
                 if frame_idx not in labels["labels"][label]:
                     continue
-
-                if label not in target_labels["labels"]:
-                    target_labels["labels"][label] = {}
+                # if label not in target_labels["labels"]:
+                #     target_labels["labels"][label] = {}
 
                 # Label not present for this frame in target, initialize
                 if frame_idx not in target_labels["labels"][label]:
@@ -114,7 +113,8 @@ def merge(labels_list: list, labeler_list=None, target_file=None):
                 target_cam_mask = ~np.any(np.isnan(target_labels["labels"][label][frame_idx]), axis=1)
                 source_cam_mask = ~np.any(np.isnan(labels["labels"][label][frame_idx]), axis=1)
                 replace_mask = source_cam_mask
-                if frame_idx not in target_labels["fr_times"] or target_labels["fr_times"][frame_idx] > labels["fr_times"][frame_idx]:
+                if frame_idx not in target_labels["fr_times"] or \
+                    (target_labels["fr_times"][frame_idx] > labels["fr_times"][frame_idx] or not overwrite):
                     # Frame is newer in target
                     replace_mask = np.logical_and(replace_mask, ~target_cam_mask)
                 target_labels["labels"][label][frame_idx][replace_mask] = \
