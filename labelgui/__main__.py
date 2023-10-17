@@ -35,7 +35,7 @@ def main():
     if args.merge is not None:
         label_data.merge(args.merge, target_file=input_path, overwrite=True)
     if args.add is not None:
-        label_data.merge(args.merge, target_file=input_path, overwrite=False)
+        label_data.merge(args.add, target_file=input_path, overwrite=False)
     elif args.combine_cams is not None:
         label_data.combine_cams(args.combine_cams, target_file=input_path)
     elif args.check is not None:
