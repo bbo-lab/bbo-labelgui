@@ -329,7 +329,7 @@ class MainWindow(QMainWindow):
 
     def init_assistant_folders(self, standard_recording_folder):
         # folder structure
-        userfolder = self.drive / 'pose' / 'user' / self.user
+        userfolder = self.drive / 'user' / self.user
         if not userfolder.is_dir():
             os.makedirs(userfolder)
         resultsfolder = userfolder / standard_recording_folder.name
