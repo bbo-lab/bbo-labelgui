@@ -45,7 +45,10 @@ def main():
         labeling_gui.main(Path('.'), config_file=input_path, master=True)
     else:
         from labelgui import labeling_gui
-        labeling_gui.main(Path(input_path), master=False)
+        input_path = Path(input_path)
+        if input_path.name == "analysis":
+            input_path /= "pose"
+        labeling_gui.main(input_path, master=False)
     return
 
 
