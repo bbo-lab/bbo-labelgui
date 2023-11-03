@@ -184,12 +184,8 @@ class MainWindow(QMainWindow):
             self.standardLabelsFile = labels_file
 
         if self.standardLabelsFile.is_file():
-            labels = np.load(self.standardLabelsFile.as_posix(), allow_pickle=True)['arr_0'][()]
-            if 'version' in labels:
-                self.labels = labels
-                self.labelsAreLoaded = True
-            else:
-                print(f'WARNING: Autoloading failed. Legacy labels file {self.standardLabelsFile} not loaded.')
+            self.labels = label_data.load(self.standardLabelsFile.as_posix())
+            self.labelsAreLoaded = True
         else:
             print(f'WARNING: Autoloading failed. Labels file {self.standardLabelsFile} does not exist.')
 
@@ -498,7 +494,6 @@ class MainWindow(QMainWindow):
                       bbox_to_anchor=(0, 1))
             ax.axis('off')
         else:
-            print(f"img u {self.pose_idx}: {hashlib.md5(img).hexdigest()}")
             self.controls['plots']['image2d'].set_array(img)
             self.controls['plots']['image2d'].set_clim(self.vmin, self.vmax)
 
@@ -621,23 +616,7 @@ class MainWindow(QMainWindow):
             cam_idx = self.camera_idx
             frame_idx = self.get_pose_idx()
             label_name = self.get_current_label()
-
-            if label_name not in self.labels['labels']:
-                self.labels['labels'][label_name] = {}
-
-            if frame_idx not in self.labels['labels'][label_name]:
-                self.labels['labels'][label_name][frame_idx] = np.full((len(self.cameras), 2), np.nan, dtype=np.float64)
-                self.labels['fr_times'][frame_idx] = time.time()
-
-            if 'labeler' not in self.labels:
-                self.labels['labeler'] = {}
-            if "labeler_list" not in self.labels:
-                self.labels["labeler_list"] = []
-
-            if self.user not in self.labels["labeler_list"]:
-                self.labels["labeler_list"].append(self.user)
-
-            self.labels['labeler'][frame_idx] = self.labels["labeler_list"].index(self.user)
+            cam_idx = self.camera_idx
 
             modifiers = QApplication.keyboardModifiers()
 
@@ -686,8 +665,19 @@ class MainWindow(QMainWindow):
                     x = event.xdata
                     y = event.ydata
                     if (x is not None) and (y is not None):
+                        data_shape = (len(self.cameras), 2)
+                        self.initialize_field(label_name, frame_idx, data_shape)
+
+                        if self.user not in self.labels["labeler_list"]:
+                            self.labels["labeler_list"].append(self.user)
+                        self.labels['labeler'][label_name][frame_idx][cam_idx] = self.labels["labeler_list"].index(
+                            self.user)
+
+                        self.labels['point_times'][label_name][frame_idx][cam_idx] = time.time()
+
                         coords = np.array([x, y], dtype=np.float64)
                         self.labels['labels'][label_name][frame_idx][cam_idx] = coords
+
                         self.plot2d_update()
 
                         self.sketch_update()
@@ -695,9 +685,25 @@ class MainWindow(QMainWindow):
                 # Right mouse - delete
                 elif event.button == 3:
                     self.labels['labels'][label_name][frame_idx][cam_idx, :] = np.nan
+                    self.labels['point_times'][label_name][frame_idx][cam_idx] = 0
+                    self.labels['labeler'][label_name][frame_idx][cam_idx] = 0
                     self.plot2d_update()
 
                     self.sketch_update()
+
+    def initialize_field(self, label_name, frame_idx, data_shape):
+        if label_name not in self.labels['labels']:
+            self.labels['labels'][label_name] = {}
+        if label_name not in self.labels['point_times']:
+            self.labels['point_times'][label_name] = {}
+        if label_name not in self.labels['labeler']:
+            self.labels['labeler'][label_name] = {}
+        if frame_idx not in self.labels['labels'][label_name]:
+            self.labels['labels'][label_name][frame_idx] = np.full(data_shape, np.nan, dtype=np.float64)
+        if frame_idx not in self.labels['point_times'][label_name]:
+            self.labels['point_times'][label_name][frame_idx] = np.full(data_shape[0], 0, dtype=np.uint64)
+        if frame_idx not in self.labels['labeler'][label_name]:
+            self.labels['labeler'][label_name][frame_idx] = np.full(data_shape[0], 0, dtype=np.uint16)
 
     # sketch
     def sketch_init(self):
@@ -1429,21 +1435,18 @@ class MainWindow(QMainWindow):
             self.cameras[i_cam]['x_lim_prev'] = self.controls['axes']['2d'].get_xlim()
             self.cameras[i_cam]['y_lim_prev'] = self.controls['axes']['2d'].get_ylim()  # [::-1]
 
-        if self.get_pose_idx() in self.labels["labeler"]:
+        if "labeler" in self.controls['labels']:  # MIght not yet be initialized ...
             self.controls['labels']['labeler'].setText(
-                self.labels["labeler_list"][self.labels["labeler"][self.get_pose_idx()]]
+                ", ".join(label_data.get_frame_labelers(self.labels, self.get_pose_idx(), cam_idx=self.camera_idx))
             )
-        else:
-            print(self.labels)
 
         if len(self.controls['fields'].items())==0:  # we are not yet initialized. probably unnecessary after cleanup
             return
 
         self.controls['fields']['current_pose'].setText(str(self.get_pose_idx()))
         self.list_labels_select()
-        self.sketch_update()
-
-        self.plot2d_draw()
+        # self.sketch_update()
+        # self.plot2d_draw()
 
         for i_cam in range(len(self.cameras)):
             self.controls['axes']['2d'].set_xlim(self.cameras[i_cam]['x_lim_prev'])
