@@ -36,6 +36,8 @@ def update(labels, labeler="_unknown"):
             point_times[ln] = {}
             for fr_idx in labels['labels'][ln]:
                 labeler[ln][fr_idx] = np.ones(data_shape[0], dtype=np.uint16) * labels['labeler'][fr_idx]
+                nanmask = np.any(np.isnan(labels["labels"][ln][fr_idx]), axis=1)
+                labeler[ln][fr_idx][nanmask] = 0
                 point_times[ln][fr_idx] = np.ones(data_shape[0], dtype=np.uint64) * labels['fr_times'][fr_idx]
 
         labels["point_times"] = point_times
@@ -120,8 +122,8 @@ def merge(labels_list: list, target_file=None, overwrite=False):
 
         for ln in labels["labels"]:
             for fr_idx in labels["labels"][ln]:
-                target_cam_mask = ~np.any(np.isnan(target_labels["labels"][ln][fr_idx]), axis=1)
-                source_cam_mask = ~np.any(np.isnan(labels["labels"][ln][fr_idx]), axis=1)
+                target_cam_mask = target_labels["labels"][ln][fr_idx] != 0
+                source_cam_mask = labels["labels"][ln][fr_idx] != 0
                 source_newer_mask = target_labels["point_times"][ln][fr_idx] < labels["point_times"][ln][fr_idx]
 
                 replace_mask = source_cam_mask & source_newer_mask

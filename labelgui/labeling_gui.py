@@ -32,7 +32,7 @@ from matplotlib.figure import Figure
 from pathlib import Path
 
 from labelgui import label_data
-from labelgui.config import load_cfg, save_cfg
+from labelgui.config import load_cfg, archive_cfg
 from labelgui.helper_gui import update_button_stylesheet, disable_button, get_button_status, toggle_button
 from labelgui.select_user import SelectUserWindow
 from labelgui.helper_video import read_video_meta
@@ -62,7 +62,7 @@ class MainWindow(QMainWindow):
             else:
                 print('ERROR: Server is not mounted')
                 sys.exit()
-
+        self.file_config = file_config
         self.model = None
 
         # Files
@@ -127,6 +127,7 @@ class MainWindow(QMainWindow):
             self.allowed_cams = self.cfg['allowed_cams']
         else:
             self.allowed_cams = list(range(len(self.cfg['standardRecordingFileNames'])))
+        self.allowed_cams = sorted(self.allowed_cams)
 
         self.pose_idx = self.minPose
 
@@ -162,12 +163,12 @@ class MainWindow(QMainWindow):
         if not self.master:
             self.init_assistant_folders(standard_recording_folder)
             self.init_autosave()
-            save_cfg(self.standardLabelsFolder / 'labeling_gui_cfg.py', self.cfg)
+            archive_cfg(self.file_config, self.standardLabelsFolder )
             self.restore_last_pose_idx()
 
         if self.cfg['autoLoad']:
             rec_file_names = sorted(
-                [standard_recording_folder / i for i in self.cfg['standardRecordingFileNames']]
+                [(standard_recording_folder / i).expanduser().resolve() for i in self.cfg['standardRecordingFileNames']]
             )
             self.load_recordings_from_names(rec_file_names)
 
@@ -317,13 +318,13 @@ class MainWindow(QMainWindow):
         autosavefolder = self.standardLabelsFolder / 'autosave'
         if not autosavefolder.is_dir():
             os.makedirs(autosavefolder)
-        save_cfg(autosavefolder / 'labeling_gui_cfg.py', self.cfg)
+        archive_cfg(self.file_config, autosavefolder)
         # file = self.standardLabelsFolder / 'labels.npz'
         # if file.is_file():
         #     labels_save = np.load(file.as_posix(), allow_pickle=True)['arr_0'][()]
         #     np.savez(autosavefolder / 'labels.npz', labels_save)
 
-    def init_assistant_folders(self, standard_recording_folder):
+    def init_assistant_folders(self, standard_recording_folder: Path):
         # folder structure
         userfolder = self.drive / 'user' / self.user
         if not userfolder.is_dir():
@@ -331,15 +332,14 @@ class MainWindow(QMainWindow):
         resultsfolder = userfolder / standard_recording_folder.name
         if not resultsfolder.is_dir():
             os.makedirs(resultsfolder)
-        self.standardLabelsFolder = resultsfolder
+        self.standardLabelsFolder = resultsfolder.expanduser().resolve()
         # backup
         backupfolder = self.standardLabelsFolder / 'backup'
         if not backupfolder.is_dir():
             os.mkdir(backupfolder)
         file = self.standardLabelsFolder / 'labeling_gui_cfg.py'
         if file.is_file():
-            cfg_old = load_cfg(file)
-            save_cfg(backupfolder / 'labeling_gui_cfg.py', cfg_old)
+            archive_cfg(file, backupfolder)
         file = self.standardLabelsFolder / 'labels.npz'
         if file.is_file():
             labels_old = np.load(file.as_posix(), allow_pickle=True)['arr_0'][()]
@@ -473,14 +473,16 @@ class MainWindow(QMainWindow):
         self.controls['figs']['2d'].canvas.draw()
 
     def plot2d_plot(self, ax, i_cam):
-        reader = self.cameras[i_cam]["reader"]
+        self.plot2d_update_image(ax, i_cam)
+        self.plot2d_draw_labels(ax)
 
+    def plot2d_update_image(self, ax, i_cam):
+        reader = self.cameras[i_cam]["reader"]
         # Only subsequent frames seem to come up correctly
         # TODO: Implement only loading the previous frame if it wasnt loaded directly before?
         if self.pose_idx > 0:
             img = reader.get_data(self.pose_idx - 1)
         img = reader.get_data(self.pose_idx)
-
         if self.controls['plots']['image2d'] is None:
             self.controls['plots']['image2d'] = ax.imshow(img,
                                                           aspect=1,
@@ -496,12 +498,10 @@ class MainWindow(QMainWindow):
         else:
             self.controls['plots']['image2d'].set_array(img)
             self.controls['plots']['image2d'].set_clim(self.vmin, self.vmax)
-
         x_res = self.get_x_res()
         y_res = self.get_y_res()
         ax.set_xlim(0.0, x_res[i_cam] - 1)
         ax.set_ylim(0.0, y_res[i_cam] - 1)
-
         if self.cfg['invert_xaxis']:
             ax.invert_xaxis()
         if self.cfg['invert_yaxis']:
@@ -509,8 +509,6 @@ class MainWindow(QMainWindow):
         if self.cameras[i_cam]["rotate"]:
             ax.invert_xaxis()
             ax.invert_yaxis()
-        #
-        self.plot2d_draw_labels(ax)
 
     def plot2d_update(self):
         self.plot2d_draw_labels(self.controls['axes']['2d'])
@@ -558,7 +556,7 @@ class MainWindow(QMainWindow):
                 # Fill from one closest neighbor, TODO: Counter from other side even if not symmetrical?
                 for offs in [-1, 1, -2, 2, -3, 3]:
                     if frame_idx + offs in self.labels['labels'][label_name]:
-                        self.neighbor_points[label_name] = self.labels['labels'][label_name][frame_idx + offs]
+                        self.neighbor_points[label_name] = self.labels['labels'][label_name][frame_idx + offs][(self.camera_idx,),]
                         break
 
         # Plot each label
@@ -614,7 +612,7 @@ class MainWindow(QMainWindow):
 
             # Initialize array
             cam_idx = self.camera_idx
-            frame_idx = self.get_pose_idx()
+            fr_idx = self.get_pose_idx()
             label_name = self.get_current_label()
             cam_idx = self.camera_idx
 
@@ -630,11 +628,11 @@ class MainWindow(QMainWindow):
                     label_names = list(self.get_sketch_labels().keys())
                     for ln in label_names:
                         if ln in self.labels['labels'] and \
-                                frame_idx in self.labels['labels'][ln] and \
-                                len(self.labels['labels'][ln][frame_idx]) > cam_idx and \
-                                not np.any(np.isnan(self.labels['labels'][ln][frame_idx][cam_idx])):
+                                fr_idx in self.labels['labels'][ln] and \
+                                len(self.labels['labels'][ln][fr_idx]) > cam_idx and \
+                                not np.any(np.isnan(self.labels['labels'][ln][fr_idx][cam_idx])):
                             point_dists.append(
-                                np.linalg.norm(self.labels['labels'][ln][frame_idx][cam_idx] - coords))
+                                np.linalg.norm(self.labels['labels'][ln][fr_idx][cam_idx] - coords))
                         else:
                             point_dists.append(1000000000)
 
@@ -666,29 +664,32 @@ class MainWindow(QMainWindow):
                     y = event.ydata
                     if (x is not None) and (y is not None):
                         data_shape = (len(self.cameras), 2)
-                        self.initialize_field(label_name, frame_idx, data_shape)
+                        self.initialize_field(label_name, fr_idx, data_shape)
 
                         if self.user not in self.labels["labeler_list"]:
                             self.labels["labeler_list"].append(self.user)
-                        self.labels['labeler'][label_name][frame_idx][cam_idx] = self.labels["labeler_list"].index(
+                        self.labels['labeler'][label_name][fr_idx][cam_idx] = self.labels["labeler_list"].index(
                             self.user)
 
-                        self.labels['point_times'][label_name][frame_idx][cam_idx] = time.time()
+                        self.labels['point_times'][label_name][fr_idx][cam_idx] = time.time()
 
                         coords = np.array([x, y], dtype=np.float64)
-                        self.labels['labels'][label_name][frame_idx][cam_idx] = coords
+                        self.labels['labels'][label_name][fr_idx][cam_idx] = coords
 
                         self.plot2d_update()
-
                         self.sketch_update()
 
                 # Right mouse - delete
                 elif event.button == 3:
-                    self.labels['labels'][label_name][frame_idx][cam_idx, :] = np.nan
-                    self.labels['point_times'][label_name][frame_idx][cam_idx] = 0
-                    self.labels['labeler'][label_name][frame_idx][cam_idx] = 0
-                    self.plot2d_update()
+                    if self.user not in self.labels["labeler_list"]:
+                        self.labels["labeler_list"].append(self.user)
 
+                    self.labels['labels'][label_name][fr_idx][cam_idx, :] = np.nan
+                    # For synchronisation, deletion time and user must be recorded
+                    self.labels['point_times'][label_name][fr_idx][cam_idx] = time.time()
+                    self.labels['labeler'][label_name][fr_idx][cam_idx] = self.labels["labeler_list"].index(self.user)
+
+                    self.plot2d_update()
                     self.sketch_update()
 
     def initialize_field(self, label_name, frame_idx, data_shape):
@@ -1444,6 +1445,7 @@ class MainWindow(QMainWindow):
             return
 
         self.controls['fields']['current_pose'].setText(str(self.get_pose_idx()))
+        self.plot2d_update_image(self.controls['axes']['2d'], self.camera_idx)
         self.list_labels_select()
         # self.sketch_update()
         # self.plot2d_draw()

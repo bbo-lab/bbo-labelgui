@@ -1,6 +1,7 @@
 import os
 import re
 from pathlib import Path
+import shutil
 
 def load_cfg(path):
     cfg_file = open(path, 'r')
@@ -25,3 +26,11 @@ def save_cfg(path: Path, cfg):
             file_cfg.write(line)
         file_cfg.write('}\n')
     return cfg
+
+
+def archive_cfg(cfg, target_dir: Path):
+    if isinstance(cfg, Path):
+        shutil.copy(cfg, target_dir.as_posix())
+        cfg = load_cfg(cfg)
+
+    save_cfg(target_dir / "labeling_gui_cfg_processed.py", cfg)
