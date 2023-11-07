@@ -228,6 +228,8 @@ def make_global_labeler_list(labels_list):
     # Create a new global list of all labelers
     labeler_list_all = []
     for labels in labels_list:
+        if labels is None:
+            continue
         if "labeler_list" in labels:
             labeler_list_all += labels["labeler_list"]
     labeler_list_all += ["_unknown"]
@@ -244,6 +246,8 @@ def make_global_labeler_list(labels_list):
 
     # Rewrite to global index list
     for labels in labels_list:
+        if labels is None:
+            continue
         for ln in labels["labels"]:
             for fr_idx in labels['labels'][ln]:
                 for i, labeler_idx in enumerate(labels['labeler'][ln][fr_idx]):
