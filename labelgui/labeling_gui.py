@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
         try:
             labels_old = label_lib.load(file)
             label_lib.save(backupfolder / 'labels.yml', labels_old)
-        except FileNotFoundException as e:
+        except FileNotFoundError as e:
             pass
 
     def init_colors(self):
