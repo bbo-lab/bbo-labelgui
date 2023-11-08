@@ -1,7 +1,7 @@
 import argparse
 import os
 from pathlib import Path
-from labelgui import label_data
+from bbo import label_lib
 from labelgui import check
 
 
@@ -27,17 +27,19 @@ def main():
                              "labeling_gui_cfg.py in directory of labels.npy")
     parser.add_argument('--master', required=False, action="store_true",
                         help="Switches between master mode and worker mode")
+    parser.add_argument('--yml_only', required=False, action="store_true",
+                        help="Switches between master mode and worker mode")
 
     args = parser.parse_args()
     input_path = os.path.expanduser(args.INPUT_PATH)
     print(input_path)
 
     if args.merge is not None:
-        label_data.merge(args.merge, target_file=input_path, overwrite=True)
+        label_lib.merge(args.merge, target_file=input_path, overwrite=True, yml_only=args.yml_only)
     if args.add is not None:
-        label_data.merge(args.add, target_file=input_path, overwrite=False)
+        label_lib.merge(args.add, target_file=input_path, overwrite=False, yml_only=args.yml_only)
     elif args.combine_cams is not None:
-        label_data.combine_cams(args.combine_cams, target_file=input_path)
+        label_lib.combine_cams(args.combine_cams, target_file=input_path, yml_only=args.yml_only)
     elif args.check is not None:
         check.check_triangulation_error(args.check, input_path)
     elif args.master:

@@ -13,4 +13,5 @@ dependencies:
     - bbo-calibcamlib
     - bbo-ccvtools
     - bbo-acm-traingui
+    - bbo-bbo>=0.1.0
     - tqdm

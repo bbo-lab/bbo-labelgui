@@ -31,7 +31,7 @@ from matplotlib.figure import Figure
 
 from pathlib import Path
 
-from labelgui import label_data
+from bbo import label_lib
 from labelgui.config import load_cfg, archive_cfg
 from labelgui.helper_gui import update_button_stylesheet, disable_button, get_button_status, toggle_button
 from labelgui.select_user import SelectUserWindow
@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
             'texts': {},
         }
 
-        self.labels = label_data.get_empty_labels()
+        self.labels = label_lib.get_empty_labels()
         self.neighbor_points = {}
 
         # Sketch zoom stuff
@@ -121,10 +121,10 @@ class MainWindow(QMainWindow):
         self.vmax = int(127)
         self.dFrame = self.cfg['dFrame']
 
-        self.minPose = self.cfg['minPose']
-        self.maxPose = self.cfg['maxPose']
+        self.minPose = int(self.cfg['minPose'])
+        self.maxPose = int(self.cfg['maxPose'])
         if 'allowed_cams' in self.cfg:
-            self.allowed_cams = self.cfg['allowed_cams']
+            self.allowed_cams = [int(i) for i in self.cfg['allowed_cams']]
         else:
             self.allowed_cams = list(range(len(self.cfg['standardRecordingFileNames'])))
         self.allowed_cams = sorted(self.allowed_cams)
@@ -180,14 +180,14 @@ class MainWindow(QMainWindow):
 
     def load_labels(self, labels_file: typing.Optional[Path] = None):
         if labels_file is None:
-            self.standardLabelsFile = self.standardLabelsFolder / 'labels.npz'
+            self.standardLabelsFile = self.standardLabelsFolder / 'labels.yml'
         else:
             self.standardLabelsFile = labels_file
 
-        if self.standardLabelsFile.is_file():
-            self.labels = label_data.load(self.standardLabelsFile.as_posix())
+        try:
+            self.labels = label_lib.load(self.standardLabelsFile)
             self.labelsAreLoaded = True
-        else:
+        except FileNotFoundError as e:
             print(f'WARNING: Autoloading failed. Labels file {self.standardLabelsFile} does not exist.')
 
     def load_sketch(self, sketch_file: typing.Optional[Path] = None):
@@ -319,10 +319,6 @@ class MainWindow(QMainWindow):
         if not autosavefolder.is_dir():
             os.makedirs(autosavefolder)
         archive_cfg(self.file_config, autosavefolder)
-        # file = self.standardLabelsFolder / 'labels.npz'
-        # if file.is_file():
-        #     labels_save = np.load(file.as_posix(), allow_pickle=True)['arr_0'][()]
-        #     np.savez(autosavefolder / 'labels.npz', labels_save)
 
     def init_assistant_folders(self, standard_recording_folder: Path):
         # folder structure
@@ -340,10 +336,12 @@ class MainWindow(QMainWindow):
         file = self.standardLabelsFolder / 'labeling_gui_cfg.py'
         if file.is_file():
             archive_cfg(file, backupfolder)
-        file = self.standardLabelsFolder / 'labels.npz'
-        if file.is_file():
-            labels_old = np.load(file.as_posix(), allow_pickle=True)['arr_0'][()]
-            np.savez(backupfolder / 'labels.npz', labels_old)
+        file = self.standardLabelsFolder / 'labels.yml'
+        try:
+            labels_old = label_lib.load(file)
+            label_lib.save(backupfolder / 'labels.yml', labels_old)
+        except FileNotFoundException as e:
+            pass
 
     def init_colors(self):
         colors = dict(mpl_colors.BASE_COLORS, **mpl_colors.CSS4_COLORS)
@@ -1173,12 +1171,12 @@ class MainWindow(QMainWindow):
         if self.cfg['autoSave'] and not self.master:
             self.autoSaveCounter = self.autoSaveCounter + 1
             if np.mod(self.autoSaveCounter, self.cfg['autoSaveN0']) == 0:
-                file = self.standardLabelsFolder / 'labels.npz'  # this is equal to self.standardLabelsFile
-                np.savez(file, self.labels)
+                file = self.standardLabelsFolder / 'labels.yml'  # this is equal to self.standardLabelsFile
+                label_lib.save(file, self.labels)
                 print('Automatically saved labels ({:s})'.format(file.as_posix()))
             if np.mod(self.autoSaveCounter, self.cfg['autoSaveN1']) == 0:
-                file = self.standardLabelsFolder / 'autosave' / 'labels.npz'
-                np.savez(file, self.labels)
+                file = self.standardLabelsFolder / 'autosave' / 'labels.yml'
+                label_lib.save(file, self.labels)
                 print('Automatically saved labels ({:s})'.format(file.as_posix()))
                 #
                 self.autoSaveCounter = 0
@@ -1438,7 +1436,7 @@ class MainWindow(QMainWindow):
 
         if "labeler" in self.controls['labels']:  # MIght not yet be initialized ...
             self.controls['labels']['labeler'].setText(
-                ", ".join(label_data.get_frame_labelers(self.labels, self.get_pose_idx(), cam_idx=self.camera_idx))
+                ", ".join(label_lib.get_frame_labelers(self.labels, self.get_pose_idx(), cam_idx=self.camera_idx))
             )
 
         if len(self.controls['fields'].items())==0:  # we are not yet initialized. probably unnecessary after cleanup
@@ -1473,8 +1471,7 @@ class MainWindow(QMainWindow):
         else:
             file_name = self.standardLabelsFile
 
-        np.savez(file_name, self.labels)
-        print(f'Saved labels ({self.standardLabelsFile})')
+        label_lib.save(file_name, self.labels)
         self.controls['buttons']['save_labels'].clearFocus()
 
     def closeEvent(self, event):

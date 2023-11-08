@@ -9,7 +9,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="bbo-labelgui",
-    version="0.13.0",
+    version="0.14.0",
     description="GUI for guided data labeling",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -27,5 +27,5 @@ setup(
     ],
     packages=['labelgui'],
     include_package_data=True,
-    install_requires=["numpy", "matplotlib", "imageio", "bbo_ccvtools", "PyQt5", "bbo_svidreader", "tqdm"],
+    install_requires=["numpy", "matplotlib", "imageio", "bbo_ccvtools", "PyQt5", "bbo_svidreader", "tqdm", "bbo-bbo"],
 )
