@@ -53,9 +53,12 @@ class MainWindow(QMainWindow):
             self.cfg = load_cfg(file_config)
         else:
             if os.path.isdir(self.drive):
-                self.user, correct_exit = SelectUserWindow.start(drive)
+                self.user, job, correct_exit = SelectUserWindow.start(drive)
                 if correct_exit:
-                    file_config = self.drive / 'data' / 'user' / self.user / 'labeling_gui_cfg.py'
+                    if job is not None:
+                        file_config = self.drive / 'data' / 'user' / self.user / 'jobs' / f'{job}.py'
+                    else:
+                        file_config = self.drive / 'data' / 'user' / self.user / 'labeling_gui_cfg.py'
                     self.cfg = load_cfg(file_config)
                 else:
                     sys.exit()
@@ -564,6 +567,7 @@ class MainWindow(QMainWindow):
                     not np.any(np.isnan(self.labels['labels'][label_name][frame_idx][cam_idx])):
                 # Plot acutal labels
                 point = self.labels['labels'][label_name][frame_idx][cam_idx, :]
+                labeler = self.labels['labeler_list'][self.labels['labeler'][label_name][frame_idx][cam_idx]]
 
                 if current_label_name == label_name:
                     plotparams = {
@@ -577,7 +581,7 @@ class MainWindow(QMainWindow):
                         'markersize': 3,
                         'zorder': 2,
                     }
-                print(f"label {label_name} {frame_idx}: {point}")
+                print(f"label {label_name} {frame_idx} {labeler}: {point}")
                 self.controls['plots']['2d'][label_name] = ax.plot([point[0]], [point[1]],
                                                                    marker='o',
                                                                    **plotparams,
