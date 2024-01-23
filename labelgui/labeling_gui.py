@@ -170,7 +170,7 @@ class MainWindow(QMainWindow):
             self.restore_last_pose_idx()
 
         if self.cfg['autoLoad']:
-            rec_file_names = sorted(
+            rec_file_names = (
                 [(standard_recording_folder / i).expanduser().resolve() for i in self.cfg['standardRecordingFileNames']]
             )
             self.load_recordings_from_names(rec_file_names)
