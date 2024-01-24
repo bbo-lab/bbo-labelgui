@@ -479,10 +479,6 @@ class MainWindow(QMainWindow):
 
     def plot2d_update_image(self, ax, i_cam):
         reader = self.cameras[i_cam]["reader"]
-        # Only subsequent frames seem to come up correctly
-        # TODO: Implement only loading the previous frame if it wasnt loaded directly before?
-        if self.pose_idx > 0:
-            img = reader.get_data(self.pose_idx - 1)
         img = reader.get_data(self.pose_idx)
         if self.controls['plots']['image2d'] is None:
             self.controls['plots']['image2d'] = ax.imshow(img,
@@ -613,7 +609,6 @@ class MainWindow(QMainWindow):
             ax = event.inaxes
 
             # Initialize array
-            cam_idx = self.camera_idx
             fr_idx = self.get_pose_idx()
             label_name = self.get_current_label()
             cam_idx = self.camera_idx
@@ -665,18 +660,12 @@ class MainWindow(QMainWindow):
                     x = event.xdata
                     y = event.ydata
                     if (x is not None) and (y is not None):
-                        data_shape = (len(self.cameras), 2)
-                        self.initialize_field(label_name, fr_idx, data_shape)
-
-                        if self.user not in self.labels["labeler_list"]:
-                            self.labels["labeler_list"].append(self.user)
-                        self.labels['labeler'][label_name][fr_idx][cam_idx] = self.labels["labeler_list"].index(
-                            self.user)
-
-                        self.labels['point_times'][label_name][fr_idx][cam_idx] = time.time()
-
-                        coords = np.array([x, y], dtype=np.float64)
-                        self.labels['labels'][label_name][fr_idx][cam_idx] = coords
+                        modifiers = QApplication.keyboardModifiers()
+                        nextframe = self.get_pose_idx() + self.dFrame
+                        if modifiers == QtCore.Qt.AltModifier:
+                            self.autolabel(fr_idx, coords=[x,y], radius=5)
+                        else:
+                            self.add_label([x,y], label_name, cam_idx, fr_idx)
 
                         self.plot2d_update()
                         self.sketch_update()
@@ -693,6 +682,18 @@ class MainWindow(QMainWindow):
 
                     self.plot2d_update()
                     self.sketch_update()
+
+    def add_label(self, coords, label_name, cam_idx, fr_idx):
+        data_shape = (len(self.cameras), 2)
+        self.initialize_field(label_name, fr_idx, data_shape)
+        if self.user not in self.labels["labeler_list"]:
+            self.labels["labeler_list"].append(self.user)
+        self.labels['labeler'][label_name][fr_idx][cam_idx] = self.labels["labeler_list"].index(
+            self.user)
+        self.labels['point_times'][label_name][fr_idx][cam_idx] = time.time()
+        coords = np.array(coords, dtype=np.float64)
+        self.labels['labels'][label_name][fr_idx][cam_idx] = coords
+
 
     def initialize_field(self, label_name, frame_idx, data_shape):
         if label_name not in self.labels['labels']:
@@ -1396,10 +1397,36 @@ class MainWindow(QMainWindow):
         self.controls['buttons']['next_label'].clearFocus()
 
     def button_next_press(self):
-        self.set_pose_idx(self.get_pose_idx() + self.dFrame)
+        modifiers = QApplication.keyboardModifiers()
+        nextframe = self.get_pose_idx() + self.dFrame
+        if modifiers == QtCore.Qt.AltModifier:
+            self.autolabel(nextframe)
+        self.set_pose_idx(nextframe)
 
     def button_previous_press(self):
-        self.set_pose_idx(self.get_pose_idx() - self.dFrame)
+        modifiers = QApplication.keyboardModifiers()
+        nextframe = self.get_pose_idx() - self.dFrame
+        if modifiers == QtCore.Qt.AltModifier:
+            self.autolabel(nextframe)
+        self.set_pose_idx(nextframe)
+
+    def autolabel(self, nextframe, radius=10, coords = None):
+        fr_idx = self.get_pose_idx()
+        label_name = self.get_current_label()
+        cam_idx = self.camera_idx
+        reader = self.cameras[cam_idx]["reader"]
+        img = np.linalg.norm(reader.get_data(nextframe), axis=2)
+        if coords is None:
+            coords = self.labels['labels'][label_name][fr_idx][cam_idx]
+        import scipy
+        img = img.astype(np.uint16)
+        img = scipy.ndimage.convolve1d(img, [1, 2, 3, 4, 3, 2, 1], axis=0)
+        img = scipy.ndimage.convolve1d(img, [1, 2, 3, 4, 3, 2, 1], axis=1)
+        xx, yy = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+        mask = (xx - coords[0]) ** 2 + (yy - coords[1]) ** 2 < radius ** 2
+        mindex = np.argmax(img * mask)
+        mindex = np.unravel_index(mindex, img.shape)
+        self.add_label((mindex[1], mindex[0]), label_name, cam_idx, nextframe)
 
     def field_current_pose_change(self):
         try:
