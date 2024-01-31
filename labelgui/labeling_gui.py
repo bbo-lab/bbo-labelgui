@@ -1418,6 +1418,9 @@ class MainWindow(QMainWindow):
         img = np.linalg.norm(reader.get_data(nextframe), axis=2)
         if coords is None:
             coords = self.labels['labels'][label_name][fr_idx][cam_idx]
+            other = self.labels['labels'][label_name][2 * fr_idx - nextframe][cam_idx]
+            if other is not None:
+                coords = 2 * coords - other
         import scipy
         img = img.astype(np.uint16)
         img = scipy.ndimage.convolve1d(img, [1, 2, 3, 4, 3, 2, 1], axis=0)
