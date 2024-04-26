@@ -9,7 +9,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="bbo-labelgui",
-    version="0.15.1",
+    version="0.15.2",
     description="GUI for guided data labeling",
     long_description=README,
     long_description_content_type="text/markdown",
