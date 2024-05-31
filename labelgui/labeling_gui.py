@@ -126,6 +126,9 @@ class MainWindow(QMainWindow):
 
         self.minPose = int(self.cfg['minPose'])
         self.maxPose = int(self.cfg['maxPose'])
+
+        self.allowed_poses = np.arange(self.minPose, self.maxPose, self.dFrame, dtype=int)
+
         if 'allowed_cams' in self.cfg:
             self.allowed_cams = [int(i) for i in self.cfg['allowed_cams']]
         else:
@@ -360,10 +363,9 @@ class MainWindow(QMainWindow):
 
     def set_pose_idx(self, pose_idx):
         pose_idx = int(pose_idx)
-        if pose_idx < self.minPose:
-            pose_idx = self.minPose
-        elif self.pose_idx > self.maxPose:
-            pose_idx = self.maxPose
+
+        pose_idx = self.allowed_poses[np.argmin(np.abs(self.allowed_poses - pose_idx))]
+        
         self.pose_idx = pose_idx
         self.plot2d_change_frame()
         if 'next' in self.controls['buttons']:
@@ -486,7 +488,7 @@ class MainWindow(QMainWindow):
                                                           cmap='gray',
                                                           vmin=self.vmin,
                                                           vmax=self.vmax)
-            print(f"img {self.pose_idx}: {hashlib.md5(img).hexdigest()}")
+#            print(f"img {self.pose_idx}: {hashlib.md5(img).hexdigest()}")
             ax.legend('',
                       facecolor=self.colors[i_cam % np.size(self.colors)],
                       loc='upper left',
