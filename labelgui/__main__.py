@@ -29,6 +29,8 @@ def main():
                         help="Switches between master mode and worker mode")
     parser.add_argument('--yml_only', required=False, action="store_true",
                         help="Switches between master mode and worker mode")
+    parser.add_argument('--sync', type=str, required=False, nargs='*', default=[False],
+                        help="Sync via mqtt. Defaults to channel bbo/sync/fr_idx")
 
     args = parser.parse_args()
     input_path = os.path.expanduser(args.INPUT_PATH)
@@ -50,7 +52,7 @@ def main():
         input_path = Path(input_path)
         if input_path.name == "analysis":
             input_path /= "pose"
-        labeling_gui.main(input_path, master=False)
+        labeling_gui.main(input_path, master=False, sync=args.sync[0] if len(args.sync)>0 else "bbo/sync/fr_idx")
     return
 
 

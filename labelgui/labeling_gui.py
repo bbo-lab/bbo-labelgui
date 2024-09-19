@@ -38,14 +38,18 @@ from labelgui.select_user import SelectUserWindow
 from labelgui.helper_video import read_video_meta
 import svidreader
 
+import paho.mqtt.client as mqtt
+
 
 class MainWindow(QMainWindow):
-    def __init__(self, drive: Path, file_config=None, master=True, parent=None):
+    def __init__(self, drive: Path, file_config=None, master=True, parent=None, sync:str|bool=False):
         super(MainWindow, self).__init__(parent)
 
         # Parameters
         self.drive = drive
         self.master = master
+
+        self.mqtt_client = None
 
         if self.master:
             if file_config is None:
@@ -162,6 +166,37 @@ class MainWindow(QMainWindow):
 
         self.sketch_init()
 
+        self.sync = sync
+        self.mqtt_connect()
+
+    def mqtt_connect(self):
+        if isinstance(self.sync,bool):
+            return
+        try:
+            self.mqtt_client = mqtt.Client()
+            self.mqtt_client.on_message = self.mqtt_on_message
+            self.mqtt_client.connect("127.0.0.1", 1883, 60)
+            self.mqtt_client.subscribe(self.sync)
+            self.mqtt_client.loop_start()
+        except ConnectionRefusedError:
+            print("ERROR: No connection to MQTT server.")
+            self.mqtt_client = None
+
+    def mqtt_publish(self):
+        if self.mqtt_client is not None:
+            try:
+                self.mqtt_client.publish(self.sync, payload=str(self.pose_idx))
+            except ConnectionRefusedError:
+                print("ERROR: No connection to MQTT server.")
+                self.mqtt_client = None
+
+    def mqtt_on_message(self, client, userdata, message):
+        print(f"Received message '{message.payload.decode()}' on topic '{message.topic}'")
+        match message.topic:
+            case "bbo/sync/fr_idx":
+                fr_idx = int(message.payload.decode())
+                self.set_pose_idx(fr_idx, mqtt_publish=False)
+
     def init_files_folders(self):
         standard_recording_folder = Path(self.cfg['standardRecordingFolder'])
 
@@ -217,7 +252,7 @@ class MainWindow(QMainWindow):
                 self.labels['labels'][label_name] = {}
 
     def get_sketch(self):
-        return self.sketch['sketch']
+        return self.sketch['sketch'].astype(np.float32)
 
     def get_sketch_labels(self):
         return self.sketch['sketch_label_locations']
@@ -361,15 +396,18 @@ class MainWindow(QMainWindow):
     def get_pose_idx(self):
         return self.pose_idx
 
-    def set_pose_idx(self, pose_idx):
+    def set_pose_idx(self, pose_idx, mqtt_publish=True):
         pose_idx = int(pose_idx)
 
         pose_idx = self.allowed_poses[np.argmin(np.abs(self.allowed_poses - pose_idx))]
-        
+
         self.pose_idx = pose_idx
         self.plot2d_change_frame()
         if 'next' in self.controls['buttons']:
             self.controls['buttons']['next'].clearFocus()
+
+        if mqtt_publish:
+            self.mqtt_publish()
 
     def combo_lists_cams_change(self, new_index):
         print(new_index, type(new_index))
@@ -842,8 +880,7 @@ class MainWindow(QMainWindow):
         if current_label_name is None or current_label_name not in sketch_labels:
             return
 
-        (x, y) = sketch_labels[current_label_name]
-
+        (x, y) = sketch_labels[current_label_name].astype(np.float32)
         self.controls['plots']['sketch_dot'].set_data([x], [y])
         self.controls['plots']['sketch_circle'].set_data([x], [y])
         # zoom
@@ -1585,9 +1622,9 @@ class MainWindow(QMainWindow):
 
 
 # noinspection PyUnusedLocal
-def main(drive: Path, config_file=None, master=True):
+def main(drive: Path, config_file=None, master=True, sync=False):
     app = QApplication(sys.argv)
-    window = MainWindow(drive=drive, file_config=config_file, master=master)
+    window = MainWindow(drive=drive, file_config=config_file, master=master, sync=sync)
     sys.exit(app.exec_())
 
 
