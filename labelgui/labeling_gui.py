@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
                 self.labels['labels'][label_name] = {}
 
     def get_sketch(self):
-        return self.sketch['sketch'].astype(np.float32)
+        return self.sketch['sketch'].astype(np.uint8)
 
     def get_sketch_labels(self):
         return self.sketch['sketch_label_locations']
