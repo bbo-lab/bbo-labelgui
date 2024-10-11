@@ -225,6 +225,7 @@ class MainWindow(QMainWindow):
         else:
             self.standardLabelsFile = labels_file
 
+        print("labels_file: ", self.standardLabelsFile)
         try:
             self.labels = label_lib.load(self.standardLabelsFile)
             self.labelsAreLoaded = True

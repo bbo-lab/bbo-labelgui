@@ -7,17 +7,13 @@ name = "bbo-labelgui"
 dynamic = ["version"]
 description = "GUI for guided data labeling"
 readme = "README.md"
-license = "BSD"
+license = "LGPL-3.0-or-later"
 authors = [
-    { name = "BBO-lab @ caesar", email = "kay-michael.voit@caesar.de" },
+    { name = "BBO-lab @ caesar", email = "kay-michael.voit@mpinb.mpg.de" },
 ]
 classifiers = [
-    "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+    "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
     "bbo-bbo>=0.1.0",
@@ -39,3 +35,7 @@ path = "labelgui/__init__.py"
 include = [
     "/labelgui",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["labelgui"]
+
