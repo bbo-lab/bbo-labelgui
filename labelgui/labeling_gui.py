@@ -31,7 +31,7 @@ from matplotlib.figure import Figure
 
 from pathlib import Path
 
-from bbo import label_lib
+from bbo import label_lib, path_management as bbo_pm
 from labelgui.config import load_cfg, archive_cfg
 from labelgui.helper_gui import update_button_stylesheet, disable_button, get_button_status, toggle_button
 from labelgui.select_user import SelectUserWindow
@@ -69,6 +69,9 @@ class MainWindow(QMainWindow):
             else:
                 print('ERROR: Server is not mounted')
                 sys.exit()
+        print("++++++++++++++++++++++++++++++++++++")
+        print("file_config: ",  file_config)
+        print("++++++++++++++++++++++++++++++++++++")
         self.file_config = file_config
         self.model = None
 
@@ -209,7 +212,7 @@ class MainWindow(QMainWindow):
 
         if self.cfg['autoLoad']:
             rec_file_names = (
-                [(standard_recording_folder / i).expanduser().resolve() for i in self.cfg['standardRecordingFileNames']]
+                [bbo_pm.decode_path(standard_recording_folder / i).expanduser().resolve() for i in self.cfg['standardRecordingFileNames']]
             )
             self.load_recordings_from_names(rec_file_names)
 
