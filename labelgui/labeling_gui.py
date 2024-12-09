@@ -114,7 +114,21 @@ class MainWindow(QMainWindow):
             'texts': {},
         }
 
+        self.dataset_name = Path(self.cfg['standardRecordingFolder']).name
         self.labels = label_lib.get_empty_labels()
+        self.ref_labels = label_lib.get_empty_labels()
+
+        if "standardReferenceLabelFile" not in self.cfg:
+            self.cfg['standardReferenceLabelFile'] = True
+        if isinstance(self.cfg['standardReferenceLabelFile'], bool) and self.cfg['standardReferenceLabelFile']:
+            self.cfg['standardReferenceLabelFile'] = bbo_pm.decode_path(f"{{storage}}/analysis/pose/data/references/{self.dataset_name}.yml")
+        if isinstance(self.cfg['standardReferenceLabelFile'], str):
+            ref_labels_file = Path(self.cfg['standardReferenceLabelFile'])
+            if ref_labels_file.is_file():
+                self.ref_labels = label_lib.load(ref_labels_file)
+            else:
+                print(f"ref_labels_file {ref_labels_file.as_posix()} not found")
+
         self.neighbor_points = {}
 
         # Sketch zoom stuff
@@ -567,9 +581,13 @@ class MainWindow(QMainWindow):
             self.controls['plots']['2d'] = {}
         if '2d_neighbor' not in self.controls['plots']:
             self.controls['plots']['2d_neighbor'] = {}
+        if '2d_ref' not in self.controls['plots']:
+            self.controls['plots']['2d_ref'] = {}
+        if '2d_line' not in self.controls['plots']:
+            self.controls['plots']['2d_line'] = {}
 
         # Remove labels
-        for tn in ["2d", "2d_neighbor"]:
+        for tn in ["2d", "2d_neighbor", "2d_ref", "2d_line"]:
             for label_name in self.controls['plots'][tn]:
                 try:
                     self.controls['plots'][tn][label_name].remove()
@@ -643,6 +661,34 @@ class MainWindow(QMainWindow):
                 self.controls['plots']['2d_neighbor'][label_name] = ax.plot(*self.neighbor_points[label_name][0],
                                                                             marker='+',
                                                                             **plotparams,
+                                                                            )[0]
+
+        for label_name in self.labels['labels']:
+            if label_name in self.ref_labels['labels'] and frame_idx in self.ref_labels['labels'][label_name] and \
+                    not np.any(np.isnan(self.ref_labels['labels'][label_name][frame_idx][cam_idx])):
+                # Plot reference labels
+                point = self.ref_labels['labels'][label_name][frame_idx][cam_idx, :]
+
+                plotparams = {
+                    'color': 'red',
+                    'markersize': 3,
+                    'zorder': 0,
+                }
+
+                self.controls['plots']['2d_ref'][label_name] = ax.plot([point[0]], [point[1]],
+                                                                   marker='x',
+                                                                   **plotparams,
+                                                                   )[0]
+
+                if frame_idx in self.labels['labels'][label_name] and \
+                        not np.any(np.isnan(self.labels['labels'][label_name][frame_idx][cam_idx])):
+                    line_coords = np.concatenate((self.labels['labels'][label_name][frame_idx][(cam_idx,), :],
+                                                  self.ref_labels['labels'][label_name][frame_idx][(cam_idx,), :]), axis=0)
+                    print("Drawing line", line_coords.shape, line_coords)
+                    self.controls['plots']['2d_line'][label_name] = ax.plot(*line_coords.T,
+                                                                            color="red",
+                                                                            linewidth=1,
+                                                                            zorder=0,
                                                                             )[0]
 
         print("=============")
